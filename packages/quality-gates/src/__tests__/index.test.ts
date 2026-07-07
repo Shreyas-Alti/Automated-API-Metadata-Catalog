@@ -18,10 +18,17 @@ describe('quality-gates', () => {
     expect(report.overallOutcome).toBe('reject');
   });
 
-  it('overall outcome is human-review-required for a clean result (no auto-accept in Phase 1-2)', () => {
-    const report = computeQualityGate({ extractionResult: makeResult([{ method: 'GET', path: '/x' }]), validationSummary: PASS_SUMMARY });
+  it('overall outcome is human-review-required for a well-formed route (no auto-accept in Phase 1-2)', () => {
+    // A route with sourceLocation + responses is "complete" and scores above the reject band
+    const report = computeQualityGate({
+      extractionResult: makeResult([{
+        method: 'GET', path: '/x',
+        sourceLocation: { file: 'app.ts', line: 10 },
+        responses: [{ statusCode: '200' }],
+      }]),
+      validationSummary: PASS_SUMMARY,
+    });
     expect(report.overallOutcome).toBe('human-review-required');
-    // No outcome should ever be 'auto-accept' in Phase 1-2
     expect(report.endpointScores.every((s) => s.outcome !== 'auto-accept')).toBe(true);
   });
 
@@ -34,7 +41,39 @@ describe('quality-gates', () => {
     expect(report.endpointScores[0]?.outcome).toBe('human-review-required');
   });
 
-  it('high parse error rate reduces score', () => {
+  // ── THE KEY TEST: per-endpoint scores must differ based on per-route signals ──
+  it('a complete endpoint scores higher than a bare endpoint IN THE SAME RUN', () => {
+    // Two endpoints in the same run: one fully specified, one bare method+path only.
+    // They must receive DIFFERENT scores — otherwise per-endpoint scoring is a no-op.
+    const report = computeQualityGate({
+      extractionResult: makeResult([
+        // Bare route: no responses, no sourceLocation, no body
+        { method: 'POST', path: '/bare' },
+        // Complete route: has sourceLocation, responses, and requestBody
+        {
+          method: 'POST',
+          path: '/complete',
+          sourceLocation: { file: 'src/routes.ts', line: 10 },
+          responses: [{ statusCode: '200', content: { 'application/json': { schema: { type: 'object' } } } }],
+          requestBody: { required: true, content: { 'application/json': { schema: { type: 'object' } } } },
+        },
+      ]),
+      validationSummary: PASS_SUMMARY,
+    });
+
+    const bareScore = report.endpointScores.find((s) => s.endpointPath === '/bare')?.score ?? 0;
+    const completeScore = report.endpointScores.find((s) => s.endpointPath === '/complete')?.score ?? 0;
+
+    // They must differ — per-endpoint scoring is only meaningful if routes score differently
+    expect(completeScore).toBeGreaterThan(bareScore);
+
+    // fieldCompletenessRatio must also differ between endpoints in the signals
+    const bareSignals = report.endpointScores.find((s) => s.endpointPath === '/bare')?.signals;
+    const completeSignals = report.endpointScores.find((s) => s.endpointPath === '/complete')?.signals;
+    expect(completeSignals?.fieldCompletenessRatio).toBeGreaterThan(bareSignals?.fieldCompletenessRatio ?? 1);
+  });
+
+  it('high parse error rate reduces score for all endpoints in the run', () => {
     const manyErrors = Array.from({ length: 9 }, (_, i) => ({ file: `f${i}.ts`, message: 'err', kind: 'parse_error' as const }));
     const reportBad = computeQualityGate({ extractionResult: makeResult([{ method: 'GET', path: '/x' }], manyErrors), validationSummary: PASS_SUMMARY });
     const reportGood = computeQualityGate({ extractionResult: makeResult([{ method: 'GET', path: '/x' }], []), validationSummary: PASS_SUMMARY });
@@ -42,7 +81,6 @@ describe('quality-gates', () => {
   });
 
   it('security fields are permanently routed to human-review (hardcoded, not scored)', () => {
-    // Even a perfect score doesn't auto-accept a security field
     const report = computeQualityGate({
       extractionResult: makeResult([{ method: 'POST', path: '/login', rateLimit: { requestsPerWindow: 5, windowSeconds: 60, source: 'middleware' } }]),
       validationSummary: PASS_SUMMARY,

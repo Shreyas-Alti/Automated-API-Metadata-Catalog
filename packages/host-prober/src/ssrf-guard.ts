@@ -67,6 +67,22 @@ export function assertIpv6IsPublic(ip: string): void {
  * Resolve hostname to IPv4/IPv6 addresses and assert none are private.
  * This is the DNS-rebind protection: the resolved IPs are checked, not the
  * hostname string itself.
+ *
+ * ⚠️  TOCTOU LIMITATION (tracked for Phase 3):
+ * This function resolves DNS once and checks the result. The subsequent
+ * axios.get() call in probeHost() triggers Node's OWN independent DNS
+ * resolution. Between the check here and the actual TCP connect, an attacker
+ * controlling DNS with a short TTL can rebind the hostname to a private IP
+ * AFTER this check passes — the classic DNS-rebind SSRF bypass.
+ *
+ * The mocked-DNS tests in __tests__/index.test.ts verify the assertion
+ * function in isolation; they do NOT exercise the TOCTOU window.
+ *
+ * Fix required before Phase 3 auto-accept goes live (host-prober also runs
+ * on a schedule by then, raising the stakes):
+ *   – Resolve once, pin the resulting IP, pass a custom http.Agent `lookup`
+ *     that returns the already-checked IP to axios, and preserve the original
+ *     hostname in the Host header / TLS SNI.
  */
 export async function assertHostnameResolvesToPublicIp(hostname: string): Promise<void> {
   const ipv4s = await dnsPromises.resolve4(hostname).catch(() => [] as string[]);

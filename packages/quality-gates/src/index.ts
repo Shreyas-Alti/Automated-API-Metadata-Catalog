@@ -29,20 +29,62 @@ export interface GateInput {
   liveRouteCount?: number;
 }
 
-/** Compute a 0–100 quality score from the given signals. */
-function computeScore(signals: QualitySignals): number {
-  // Weights:  completeness 50%, parser error rate 30%, cross-source 20%
-  const completenessScore = signals.fieldCompletenessRatio * 50;
-  const errorPenalty = signals.parserErrorRate * 30;
-  const crossSourceScore =
-    signals.crossSourceAgreement !== undefined
-      ? signals.crossSourceAgreement * 20
-      : 20; // no cross-source data → assume neutral (no penalty)
+// ─── Per-route field completeness ────────────────────────────────────────────
+//
+// Each route is scored on its *own* completeness — not the run average.
+// This is the key per-endpoint discriminator: a route with a sourceLocation,
+// at least one response schema, and a requestBody where expected scores higher
+// than a route with only method + path.
+//
+// Run-level signals (parserErrorRate, crossSourceAgreement, deltaFromPrevious)
+// are shared context applied uniformly but don't override the per-route signal.
+
+/**
+ * Compute 0–1 field completeness for ONE route.
+ * This is what makes scores differ *between* endpoints in the same run.
+ */
+function computePerRouteCompleteness(
+  route: ExtractionResult['routes'][number],
+): number {
+  const needsBody = ['POST', 'PUT', 'PATCH'].includes(route.method.toUpperCase());
+
+  const checks: boolean[] = [
+    Boolean(route.sourceLocation),              // parser located this in source code
+    (route.responses?.length ?? 0) > 0,         // at least one response schema defined
+    !needsBody || Boolean(route.requestBody),   // body present where expected
+  ];
+
+  return checks.filter(Boolean).length / checks.length;
+}
+
+// ─── Score formula ────────────────────────────────────────────────────────────
+
+interface RunLevelSignals {
+  parserErrorRate: number;
+  crossSourceAgreement?: number;
+  deltaFromPrevious?: number;
+}
+
+/**
+ * Combine per-route completeness with run-level signals into a 0–100 score.
+ *
+ * Weights:
+ *   per-route completeness : 50 pts  (main discriminator between endpoints)
+ *   cross-source agreement : 20 pts  (run-level, neutral if no probe data)
+ *   parser error rate      : -30 pts penalty (run-level)
+ *   large delta penalty    : -15 pts if route count swung >50% vs previous run
+ */
+function computeScore(
+  runSignals: RunLevelSignals,
+  routeFieldCompleteness: number,
+): number {
+  const completenessScore = routeFieldCompleteness * 50;
+  const errorPenalty = runSignals.parserErrorRate * 30;
+  const crossSourceScore = (runSignals.crossSourceAgreement ?? 1) * 20;
 
   let score = completenessScore + crossSourceScore - errorPenalty;
 
-  // Apply delta penalty if route count changed dramatically (>50% swing)
-  if (signals.deltaFromPrevious !== undefined && signals.deltaFromPrevious > 0.5) {
+  if (runSignals.deltaFromPrevious !== undefined && runSignals.deltaFromPrevious > 0.5) {
     score -= 15;
   }
 
@@ -54,7 +96,7 @@ function scoreToOutcome(score: number, hasSecurityField: boolean): GateOutcome {
   // Permanent exception: security fields always go to human review
   if (hasSecurityField) return 'human-review-required';
 
-  // Phase 1–2: auto-accept path disabled — even 90+ routes to human-review
+  // Phase 1–2: auto-accept path disabled
   if (score >= SCORE_BAND_AUTO_ACCEPT_MIN) return 'human-review-required';
   if (score >= SCORE_BAND_REVIEW_MIN) return 'human-review-required';
   return 'reject';
@@ -64,7 +106,6 @@ function endpointHasSecurityField(route: ExtractionResult['routes'][number]): bo
   const secFields = SECURITY_FIELDS_ALWAYS_REVIEW as readonly string[];
   if ((route.security?.length ?? 0) > 0) return true;
   if (route.rateLimit !== undefined) return true;
-  // Check if any parameter name matches a security field
   for (const p of route.parameters ?? []) {
     if (secFields.some((f) => p.name.toLowerCase().includes(f))) return true;
   }
@@ -74,12 +115,18 @@ function endpointHasSecurityField(route: ExtractionResult['routes'][number]): bo
 /**
  * Compute per-endpoint quality scores and produce a RunQualityReport.
  *
+ * Each endpoint receives its own score based on its own field completeness
+ * plus shared run-level context (parser error rate, cross-source agreement,
+ * delta from previous run). Two endpoints in the same run CAN and SHOULD
+ * receive different scores — that is the point of per-endpoint scoring.
+ *
  * Phase 1–2: overallOutcome is always 'human-review-required' or 'reject'.
- * Auto-accept will only be enabled in Phase 3 after calibration data supports it.
+ * Auto-accept is only enabled in Phase 3 after calibration data supports it.
  */
 export function computeQualityGate(input: GateInput): RunQualityReport {
   const { extractionResult, validationSummary, previousRunRouteCount, liveRouteCount } = input;
 
+  // ── Run-level signals (shared context, not per-endpoint scores) ──────────
   const totalFiles = Math.max(
     extractionResult.errors.length + extractionResult.routes.length,
     1,
@@ -87,10 +134,6 @@ export function computeQualityGate(input: GateInput): RunQualityReport {
   const parserErrorRate = extractionResult.errors.length / totalFiles;
 
   const routeCount = extractionResult.routes.length;
-  const routesWithRequiredFields = extractionResult.routes.filter(
-    (r) => r.method && r.path,
-  ).length;
-  const fieldCompletenessRatio = routeCount === 0 ? 1 : routesWithRequiredFields / routeCount;
 
   const crossSourceAgreement =
     liveRouteCount !== undefined && routeCount > 0
@@ -102,27 +145,35 @@ export function computeQualityGate(input: GateInput): RunQualityReport {
       ? Math.abs(routeCount - previousRunRouteCount) / previousRunRouteCount
       : undefined;
 
-  const baseSignals: QualitySignals = {
-    parserErrorRate,
-    fieldCompletenessRatio,
-    crossSourceAgreement,
-    deltaFromPrevious,
-  };
+  const runSignals: RunLevelSignals = { parserErrorRate, crossSourceAgreement, deltaFromPrevious };
 
+  // ── Per-endpoint scoring ─────────────────────────────────────────────────
   const endpointScores: EndpointQualityScore[] = extractionResult.routes.map((route) => {
+    // This is what discriminates between endpoints: their individual completeness
+    const perRouteCompleteness = computePerRouteCompleteness(route);
     const hasSecurityField = endpointHasSecurityField(route);
-    const score = computeScore(baseSignals);
+
+    // Each endpoint's QualitySignals reflects ITS OWN completeness
+    const signals: QualitySignals = {
+      parserErrorRate,
+      fieldCompletenessRatio: perRouteCompleteness,   // ← per-route, not run average
+      crossSourceAgreement,
+      deltaFromPrevious,
+    };
+
+    const score = computeScore(runSignals, perRouteCompleteness);
+
     return {
       endpointPath: route.path,
       endpointMethod: route.method,
       score,
       outcome: scoreToOutcome(score, hasSecurityField),
-      signals: baseSignals,
+      signals,
       hasSecurityField,
     };
   });
 
-  // Validation errors drive the overall outcome to reject
+  // Validation errors always drive overall outcome to reject
   const hasValidationErrors = !validationSummary.passed;
   const anyRejected = endpointScores.some((s) => s.outcome === 'reject') || hasValidationErrors;
 
@@ -131,11 +182,12 @@ export function computeQualityGate(input: GateInput): RunQualityReport {
     : 'human-review-required';
 
   return {
-    extractionRunId: '', // set by the caller
+    extractionRunId: '',
     endpointScores,
     overallOutcome,
   };
 }
 
 export type { RunQualityReport, EndpointQualityScore };
+
 

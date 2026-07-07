@@ -94,6 +94,9 @@ export async function probeHost(
       if (response.status >= 300 && response.status < 400) {
         const location = response.headers['location'] as string | undefined;
         if (location) { try { assertRedirectIsSafe(location); } catch { continue; } }
+        // Redirects are detected and safety-checked but never followed.
+        // This is intentional: we fail closed. A future version can follow
+        // safe redirects by re-entering the probe loop with the new URL.
         continue;
       }
       if (response.status === 200) {
