@@ -260,11 +260,34 @@ The unit-tests job in `.github/workflows/ci.yml` now runs `pnpm run build` **bef
 | `extraction-run-tracker` — status transitions enforced | ✅ Verified — 7 tests |
 | `generators/openapi` — pure function, snapshot-tested | ✅ Verified — 5 tests |
 | `core-extraction-engine` — full pipeline wired, CLI command works | ✅ Verified — 6 integration tests |
-| 80%+ unit test coverage target on `core-extraction-engine`, `validation-engine`, `canonical-graph`, `host-prober` | ✅ All four fully tested (no stubs remain) |
+| 80%+ unit test coverage target on `core-extraction-engine`, `validation-engine`, `canonical-graph`, `host-prober` | ⚠️ Partial — see measured numbers below |
 | All `host-prober` SSRF security tests passing | ✅ 27/27 |
 | CLI produces reproducible `ExtractionRun`, canonical graph, evidence trail, OpenAPI document for a real Express repo | ✅ Integration tests use the golden-repo fixture end-to-end |
 
-**Phase 1 complete. Ready for Phase 1 review checkpoint, then Phase 2.**
+**Coverage (measured with `jest --coverage --coverageReporters=text-summary`):**
+
+| Package | Statements | Branches | Functions | Lines | Pass? |
+|---|---|---|---|---|---|
+| `validation-engine` | 96.6% | **100%** | **100%** | **100%** | ✅ |
+| `canonical-graph` | **100%** | **100%** | **100%** | **100%** | ✅ |
+| `core-extraction-engine` | 82.7% | 50% | 75% | 84.3% | ⚠️ branch coverage below target |
+| `host-prober` | 61.5% | 51.1% | 82.4% | 63.2% | ❌ overall below target |
+
+**Note on host-prober:** The SSRF guard functions (`assertIpv4IsPublic`, `assertIpv6IsPublic`, `assertHostnameResolvesToPublicIp`, `assertRedirectIsSafe`) are fully tested — the lower overall percentage comes from `probeHost()` HTTP probe paths (spec-path loop, liveness check, redirect handling) that require live-network responses or more elaborate axios mocking. The security-critical code paths are covered; the untested lines are non-security HTTP iteration logic.
+
+**Note on core-extraction-engine branches:** The 50% branch figure reflects error-path branches (parser not found, parser throws, path not exists, quality-gate reject) that are partially covered; the integration tests exercise the main success path and several error paths but not all combinations.
+
+**Phase 1 complete. Proceed to Phase 2 with the two tracked items below.**
+
+---
+
+## Tracked items (carry forward, do not drop)
+
+| Item | Target phase | Detail |
+|---|---|---|
+| **DNS TOCTOU in `host-prober`** | Before Phase 3 auto-accept goes live | `assertHostnameResolvesToPublicIp()` resolves DNS once and checks the result; `axios.get()` does its own independent DNS resolution at request time. An attacker with a short-TTL DNS record can rebind the hostname to a private IP *after* the check passes. Fix: resolve once, pin the resulting IP, pass a custom `http.Agent` `lookup` that returns the pre-checked IP, preserve the original hostname in the `Host` header / TLS SNI. The 27 SSRF tests check the assertion function in isolation; none exercise the TOCTOU window. Must be fixed before Phase 3 (drift job runs `host-prober` unattended and repeatedly against arbitrary user-supplied URLs). |
+| **host-prober coverage below 80%** | Phase 2 (alongside other host-prober work) | 61.5% statements / 51.1% branches overall. SSRF guard code is fully tested; gap is in `probeHost()` HTTP probe paths. Add axios mock coverage for spec-path 200/3xx/non-JSON responses and liveness-check paths. |
+| **core-extraction-engine branch coverage** | Phase 2 | 50% branch coverage. Add tests for quality-gate-reject path, validation-failed path, and null parser-version handling. |
 
 ---
 
