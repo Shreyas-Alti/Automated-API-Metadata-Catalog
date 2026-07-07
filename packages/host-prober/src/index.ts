@@ -48,6 +48,11 @@ const DEFAULT_MAX_BYTES = 1_024 * 1_024; // 1 MB
  * THE ONLY function allowed to make outbound HTTP requests to user-supplied URLs.
  * All SSRF protections are enforced here: private IP blocking, cloud metadata
  * blocking, DNS-rebind protection, redirect validation, timeout and size caps.
+ *
+ * Return value contract: probe results inform quality-gate signals (liveRouteCount,
+ * crossSourceAgreement) and may surface a discoveredSpecUrl for human review.
+ * They must NEVER be used to create or modify Endpoint entities in the canonical
+ * graph — endpoints are created exclusively by the extraction pipeline.
  */
 export async function probeHost(
   hostUrl: string,

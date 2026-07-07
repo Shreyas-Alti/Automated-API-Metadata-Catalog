@@ -42,6 +42,29 @@ interface OpenApiSchema {
  * Generated artifacts are NEVER edited directly by humans — they are always
  * regenerable from the canonical graph.
  */
+
+function buildResponses(
+  graph: ApiGraph,
+  endpointId: string,
+): Record<string, { description: string; content?: Record<string, { schema?: OpenApiSchema }> }> {
+  const endpointResponses = graph.responses.filter((r) => r.endpointId === endpointId);
+
+  if (endpointResponses.length === 0) {
+    return {
+      '200': { description: 'Success' },
+      default: { description: 'Unexpected error' },
+    };
+  }
+
+  const result: Record<string, { description: string; content?: Record<string, { schema?: OpenApiSchema }> }> = {};
+  for (const resp of endpointResponses) {
+    result[resp.statusCode] = {
+      description: resp.description ?? 'Response',
+      content: resp.content as Record<string, { schema?: OpenApiSchema }> | undefined,
+    };
+  }
+  return result;
+}
 export function generateOpenApi(graph: ApiGraph): OpenApiDocument {
   const paths: Record<string, OpenApiPathItem> = {};
 
@@ -56,10 +79,7 @@ export function generateOpenApi(graph: ApiGraph): OpenApiDocument {
       summary: endpoint.summary,
       description: endpoint.description,
       tags: endpoint.tags,
-      responses: {
-        '200': { description: 'Success' },
-        default: { description: 'Unexpected error' },
-      },
+      responses: buildResponses(graph, endpoint.id),
     };
 
     // Attach security info from auth entities

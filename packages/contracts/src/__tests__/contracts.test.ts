@@ -115,15 +115,32 @@ describe('Canonical graph contracts', () => {
         id: 'api-1',
         repositoryId: 'repo-1',
         name: 'Example API',
+        hostUrl: 'https://api.example.com',
         createdAt: new Date(),
         updatedAt: new Date(),
       },
       endpoints: [],
       schemas: [],
       auths: [],
+      responses: [],
       versions: [],
     };
     expect(graph.endpoints).toHaveLength(0);
+    expect(graph.api.hostUrl).toBe('https://api.example.com');
+  });
+
+  it('Response entity links to an endpoint via endpointId', () => {
+    const response: import('../canonical-graph').Response = {
+      id: 'resp-1',
+      endpointId: 'ep-1',
+      statusCode: '200',
+      description: 'Success',
+      content: { 'application/json': { schema: { type: 'object' } } },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    expect(response.endpointId).toBe('ep-1');
+    expect(response.statusCode).toBe('200');
   });
 });
 

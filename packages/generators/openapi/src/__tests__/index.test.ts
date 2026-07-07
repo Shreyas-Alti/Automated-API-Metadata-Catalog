@@ -9,6 +9,7 @@ function makeGraph(overrides: Partial<ApiGraph> = {}): ApiGraph {
     endpoints: [],
     schemas: [],
     auths: [],
+    responses: [],
     versions: [{ id: 'v-1', apiId: 'api-1', extractionRunId: 'run-1', version: 'express-1.0.0', createdAt: now }],
     ...overrides,
   };

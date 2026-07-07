@@ -32,28 +32,46 @@ export interface GateInput {
 // ─── Per-route field completeness ────────────────────────────────────────────
 //
 // Each route is scored on its *own* completeness — not the run average.
-// This is the key per-endpoint discriminator: a route with a sourceLocation,
-// at least one response schema, and a requestBody where expected scores higher
-// than a route with only method + path.
+// This is the key per-endpoint discriminator: a route with a sourceLocation
+// and response schemas defined scores higher than a route with only method+path.
+//
+// IMPORTANT: checks are capability-aware — we only test for a field's presence
+// if the parser declared it can extract that field. Penalising a Phase 1 route
+// for having no response schemas when the parser reports
+// `capabilities.models = 'not supported'` would unfairly reject clean runs.
 //
 // Run-level signals (parserErrorRate, crossSourceAgreement, deltaFromPrevious)
-// are shared context applied uniformly but don't override the per-route signal.
+// are shared context applied uniformly.
+
+import type { ParserCapabilities } from '@api-catalog/contracts';
 
 /**
- * Compute 0–1 field completeness for ONE route.
+ * Compute 0–1 field completeness for ONE route, conditional on what the parser
+ * declared it can extract.
+ *
  * This is what makes scores differ *between* endpoints in the same run.
  */
 function computePerRouteCompleteness(
   route: ExtractionResult['routes'][number],
+  capabilities: ParserCapabilities,
 ): number {
+  const checks: boolean[] = [];
+
+  // sourceLocation — always applicable: the parser either found it in source or didn't
+  checks.push(Boolean(route.sourceLocation));
+
+  // Response schemas — only applies when parser supports model/response extraction
+  if (capabilities.models !== 'not supported') {
+    checks.push((route.responses?.length ?? 0) > 0);
+  }
+
+  // requestBody — only applies when parser supports middleware/body extraction
   const needsBody = ['POST', 'PUT', 'PATCH'].includes(route.method.toUpperCase());
+  if (capabilities.middleware !== 'not supported' && needsBody) {
+    checks.push(Boolean(route.requestBody));
+  }
 
-  const checks: boolean[] = [
-    Boolean(route.sourceLocation),              // parser located this in source code
-    (route.responses?.length ?? 0) > 0,         // at least one response schema defined
-    !needsBody || Boolean(route.requestBody),   // body present where expected
-  ];
-
+  if (checks.length === 0) return 1; // no applicable checks — treat as complete
   return checks.filter(Boolean).length / checks.length;
 }
 
@@ -149,8 +167,12 @@ export function computeQualityGate(input: GateInput): RunQualityReport {
 
   // ── Per-endpoint scoring ─────────────────────────────────────────────────
   const endpointScores: EndpointQualityScore[] = extractionResult.routes.map((route) => {
-    // This is what discriminates between endpoints: their individual completeness
-    const perRouteCompleteness = computePerRouteCompleteness(route);
+    // Each endpoint's completeness is computed from ITS OWN fields,
+    // conditioned on what the parser declared it can extract
+    const perRouteCompleteness = computePerRouteCompleteness(
+      route,
+      extractionResult.capabilities,
+    );
     const hasSecurityField = endpointHasSecurityField(route);
 
     // Each endpoint's QualitySignals reflects ITS OWN completeness

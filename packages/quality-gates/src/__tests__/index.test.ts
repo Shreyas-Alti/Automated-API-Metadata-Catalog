@@ -43,33 +43,42 @@ describe('quality-gates', () => {
 
   // ── THE KEY TEST: per-endpoint scores must differ based on per-route signals ──
   it('a complete endpoint scores higher than a bare endpoint IN THE SAME RUN', () => {
-    // Two endpoints in the same run: one fully specified, one bare method+path only.
-    // They must receive DIFFERENT scores — otherwise per-endpoint scoring is a no-op.
-    const report = computeQualityGate({
-      extractionResult: makeResult([
-        // Bare route: no responses, no sourceLocation, no body
-        { method: 'POST', path: '/bare' },
-        // Complete route: has sourceLocation, responses, and requestBody
-        {
-          method: 'POST',
-          path: '/complete',
-          sourceLocation: { file: 'src/routes.ts', line: 10 },
-          responses: [{ statusCode: '200', content: { 'application/json': { schema: { type: 'object' } } } }],
-          requestBody: { required: true, content: { 'application/json': { schema: { type: 'object' } } } },
+    // Use capabilities that include response + middleware support so the
+    // per-route response and body checks are active for this test.
+    const reportWithResponseCapability = computeQualityGate({
+      extractionResult: {
+        parserName: 'express', parserVersion: '2.0.0',
+        capabilities: {
+          routes: 'supported',
+          models: 'supported',       // response check IS active
+          middleware: 'supported',   // body check IS active
+          auth: 'not supported',
+          rateLimits: 'not supported',
         },
-      ]),
+        routes: [
+          // Bare route: no responses, no sourceLocation, no body
+          { method: 'POST', path: '/bare' },
+          // Complete route: has sourceLocation, responses, and requestBody
+          {
+            method: 'POST',
+            path: '/complete',
+            sourceLocation: { file: 'src/routes.ts', line: 10 },
+            responses: [{ statusCode: '200', content: { 'application/json': { schema: { type: 'object' } } } }],
+            requestBody: { required: true, content: { 'application/json': { schema: { type: 'object' } } } },
+          },
+        ],
+        schemas: {}, errors: [], warnings: [],
+      },
       validationSummary: PASS_SUMMARY,
     });
 
-    const bareScore = report.endpointScores.find((s) => s.endpointPath === '/bare')?.score ?? 0;
-    const completeScore = report.endpointScores.find((s) => s.endpointPath === '/complete')?.score ?? 0;
+    const bareScore = reportWithResponseCapability.endpointScores.find((s) => s.endpointPath === '/bare')?.score ?? 0;
+    const completeScore = reportWithResponseCapability.endpointScores.find((s) => s.endpointPath === '/complete')?.score ?? 0;
 
-    // They must differ — per-endpoint scoring is only meaningful if routes score differently
     expect(completeScore).toBeGreaterThan(bareScore);
 
-    // fieldCompletenessRatio must also differ between endpoints in the signals
-    const bareSignals = report.endpointScores.find((s) => s.endpointPath === '/bare')?.signals;
-    const completeSignals = report.endpointScores.find((s) => s.endpointPath === '/complete')?.signals;
+    const bareSignals = reportWithResponseCapability.endpointScores.find((s) => s.endpointPath === '/bare')?.signals;
+    const completeSignals = reportWithResponseCapability.endpointScores.find((s) => s.endpointPath === '/complete')?.signals;
     expect(completeSignals?.fieldCompletenessRatio).toBeGreaterThan(bareSignals?.fieldCompletenessRatio ?? 1);
   });
 

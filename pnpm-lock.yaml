@@ -255,6 +255,12 @@ importers:
         specifier: workspace:*
         version: link:../contracts
 
+  packages/repository-loader:
+    dependencies:
+      '@api-catalog/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+
   packages/validation-engine:
     dependencies:
       '@api-catalog/contracts':

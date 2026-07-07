@@ -8,6 +8,7 @@ import type {
   Endpoint,
   Auth,
   ApiVersion,
+  Response,
 } from '@api-catalog/contracts';
 
 /**
@@ -26,6 +27,7 @@ export function buildGraph(
   result: ExtractionResult,
   evidence: Map<string, EndpointEvidenceSummary>,
   runId: string,
+  hostUrl?: string,
 ): ApiGraph {
   const now = new Date();
 
@@ -41,6 +43,7 @@ export function buildGraph(
     id: randomUUID(),
     repositoryId: repository.id,
     name: apiName,
+    hostUrl,
     createdAt: now,
     updatedAt: now,
   };
@@ -57,6 +60,10 @@ export function buildGraph(
 
   // Build Auth entities from evidence (only if human-verified)
   const auths: Auth[] = [];
+  // Build Response entities from parser output — preserved through the pipeline,
+  // not dropped between ExtractionResult and the canonical graph.
+  const responses: Response[] = [];
+
   for (let i = 0; i < result.routes.length; i++) {
     const route = result.routes[i]!;
     const ep = endpoints[i]!;
@@ -77,6 +84,18 @@ export function buildGraph(
         });
       }
     }
+
+    for (const parsedResp of route.responses ?? []) {
+      responses.push({
+        id: randomUUID(),
+        endpointId: ep.id,
+        statusCode: parsedResp.statusCode,
+        description: parsedResp.description,
+        content: parsedResp.content as Record<string, { schema?: unknown }> | undefined,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
   }
 
   const version: ApiVersion = {
@@ -93,6 +112,7 @@ export function buildGraph(
     endpoints,
     schemas: [],
     auths,
+    responses,
     versions: [version],
   };
 }
