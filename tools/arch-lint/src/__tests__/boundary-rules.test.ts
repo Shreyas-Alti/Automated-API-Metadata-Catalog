@@ -118,6 +118,7 @@ function runDepcruiseOnFixture(relativeFixturePath: string): {
     const exitCode = e.status ?? 1;
     const raw = e.stdout?.toString() ?? '';
     // depcruise err reporter uses ANSI colour codes — strip them before parsing
+    // eslint-disable-next-line no-control-regex
     const output = raw.replace(/\x1b\[[0-9;]*m/g, '');
     // err reporter prints: "  error {rule-name}: {from} → {to}"
     const ruleNameMatches = [...output.matchAll(/error\s+(\S+):/g)];
