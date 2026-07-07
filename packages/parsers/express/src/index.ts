@@ -1,22 +1,66 @@
-// parsers/express — Phase 0 stub
-// Phase 1 implementation: Express.js static parser v1.0.0
-//   - capability declaration (routes: supported, models: supported, middleware: supported,
-//     auth: not supported, rateLimits: not supported)
-//   - golden-repo test suite (no parser change merges without this suite passing)
-// CI-enforced: may NOT import a DB client, LLM client, or make outbound HTTP requests.
-
-import type { ParserCapabilities } from '@api-catalog/contracts';
+import type {
+  ExtractionResult,
+  ParserCapabilities,
+  ExtractionError,
+  ExtractionWarning,
+} from '@api-catalog/contracts';
 import type { IParser } from '@api-catalog/parser-registry';
+import { extractRoutesFromSource } from './route-extractor';
+import { findSourceFiles, readSourceFile } from './file-finder';
 
-// Capability declaration for express parser v1.0.0
-// Generated from this file — never hand-maintained in a separate central table.
+// Capability declaration for parsers/express v1.0.0.
+// This file is the single source of truth — never hand-maintain a copy elsewhere.
 export const EXPRESS_PARSER_CAPABILITIES: ParserCapabilities = {
   routes: 'supported',
-  models: 'supported',
-  middleware: 'supported',
+  models: 'not supported',   // Phase 2: schema extraction from TS types
+  middleware: 'not supported', // Phase 2: app.use() middleware detection
   auth: 'not supported',
   rateLimits: 'not supported',
 } as const;
 
-// Placeholder — full IParser implementation in Phase 1
-export type { IParser };
+export const ExpressParser: IParser = {
+  name: 'express',
+  version: '1.0.0',
+  capabilities: EXPRESS_PARSER_CAPABILITIES,
+
+  async parse(repoPath: string, _commitSha: string): Promise<ExtractionResult> {
+    const files = findSourceFiles(repoPath);
+    const errors: ExtractionError[] = [];
+    const warnings: ExtractionWarning[] = [];
+    const allRoutes: ExtractionResult['routes'] = [];
+
+    for (const filePath of files) {
+      const source = readSourceFile(filePath);
+      if (source === null) {
+        errors.push({
+          file: filePath,
+          message: 'Could not read file',
+          kind: 'parse_error',
+        });
+        continue;
+      }
+
+      try {
+        const routes = extractRoutesFromSource(filePath, source);
+        allRoutes.push(...routes);
+      } catch (err: unknown) {
+        errors.push({
+          file: filePath,
+          message: err instanceof Error ? err.message : String(err),
+          kind: 'parse_error',
+        });
+      }
+    }
+
+    return {
+      parserName: 'express',
+      parserVersion: '1.0.0',
+      capabilities: EXPRESS_PARSER_CAPABILITIES,
+      routes: allRoutes,
+      schemas: {},
+      errors,
+      warnings,
+    };
+  },
+};
+

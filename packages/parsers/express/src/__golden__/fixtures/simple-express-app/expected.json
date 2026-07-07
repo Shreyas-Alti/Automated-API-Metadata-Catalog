@@ -1,0 +1,12 @@
+{
+  "description": "Expected routes extracted from the simple-express-app fixture. Update this file explicitly when parser behaviour intentionally changes.",
+  "routeCount": 6,
+  "routes": [
+    { "method": "GET",    "path": "/health" },
+    { "method": "GET",    "path": "/" },
+    { "method": "GET",    "path": "/:id" },
+    { "method": "POST",   "path": "/" },
+    { "method": "PUT",    "path": "/:id" },
+    { "method": "DELETE", "path": "/:id" }
+  ]
+}

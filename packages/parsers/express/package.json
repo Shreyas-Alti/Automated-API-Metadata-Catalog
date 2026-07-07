@@ -13,6 +13,10 @@
   },
   "dependencies": {
     "@api-catalog/contracts": "workspace:*",
-    "@api-catalog/parser-registry": "workspace:*"
+    "@api-catalog/parser-registry": "workspace:*",
+    "typescript": "^5.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0"
   }
 }

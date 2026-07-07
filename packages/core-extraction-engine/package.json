@@ -5,6 +5,9 @@
   "description": "Orchestrates one full run: parse → validate → gate → probe → evidence → graph. Exposed as CLI + library.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "bin": {
+    "extract-api": "./dist/cli.js"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit",
@@ -19,6 +22,9 @@
     "@api-catalog/quality-gates": "workspace:*",
     "@api-catalog/evidence-ledger": "workspace:*",
     "@api-catalog/canonical-graph": "workspace:*",
-    "@api-catalog/extraction-run-tracker": "workspace:*"
+    "@api-catalog/extraction-run-tracker": "workspace:*",
+    "@api-catalog/generator-openapi": "workspace:*",
+    "@api-catalog/parser-express": "workspace:*",
+    "commander": "^12.0.0"
   }
 }

@@ -154,9 +154,15 @@ importers:
       '@api-catalog/extraction-run-tracker':
         specifier: workspace:*
         version: link:../extraction-run-tracker
+      '@api-catalog/generator-openapi':
+        specifier: workspace:*
+        version: link:../generators/openapi
       '@api-catalog/host-prober':
         specifier: workspace:*
         version: link:../host-prober
+      '@api-catalog/parser-express':
+        specifier: workspace:*
+        version: link:../parsers/express
       '@api-catalog/parser-registry':
         specifier: workspace:*
         version: link:../parser-registry
@@ -166,6 +172,9 @@ importers:
       '@api-catalog/validation-engine':
         specifier: workspace:*
         version: link:../validation-engine
+      commander:
+        specifier: ^12.0.0
+        version: 12.1.0
 
   packages/evidence-ledger:
     dependencies:
@@ -205,6 +214,9 @@ importers:
       '@api-catalog/contracts':
         specifier: workspace:*
         version: link:../contracts
+      axios:
+        specifier: ^1.7.0
+        version: 1.18.1
 
   packages/llm-enrichment:
     dependencies:
@@ -229,6 +241,13 @@ importers:
       '@api-catalog/parser-registry':
         specifier: workspace:*
         version: link:../../parser-registry
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
+    devDependencies:
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.19.43
 
   packages/quality-gates:
     dependencies:
@@ -1037,6 +1056,10 @@ packages:
   combined-stream@1.0.8:
     resolution: {integrity: sha512-FQN4MRfuJeHf7cBbBMJFXhKSDq+2kAArBlmRBvcvFE5BB1HZKXtSFASDhdlz9zOYwxh8lDdnvmMOe/+5cdoEdg==}
     engines: {node: '>= 0.8'}
+
+  commander@12.1.0:
+    resolution: {integrity: sha512-Vw8qHK3bZM9y/P10u3Vib8o/DdkvA2OtPtZvD871QKjy74Wj1WSKFILMPRPSdUSx5RFK1arlJzEtA4PkFgnbuA==}
+    engines: {node: '>=18'}
 
   commander@13.1.0:
     resolution: {integrity: sha512-/rFeCpNJQbhSZjGVwO9RFV3xPqbnERS8MmIQzCtD/zl6gpJuV/bMLuN92oG3F7d8oDEHHRrujSXNUr8fpjntKw==}
@@ -3563,6 +3586,8 @@ snapshots:
   combined-stream@1.0.8:
     dependencies:
       delayed-stream: 1.0.0
+
+  commander@12.1.0: {}
 
   commander@13.1.0: {}
 

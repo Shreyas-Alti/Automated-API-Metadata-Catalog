@@ -1,0 +1,8 @@
+{
+  "name": "simple-express-app",
+  "version": "1.0.0",
+  "description": "Golden-repo fixture for parsers/express tests",
+  "dependencies": {
+    "express": "^4.18.0"
+  }
+}
