@@ -147,13 +147,23 @@ In-memory implementation (`InMemoryEvidenceLedger`) of the `IEvidenceLedger` int
 
 ```
 Repository
-  └── Api
-        └── Endpoint[]   (one per route)
+  └── Api              (+ hostUrl field)
+        └── Endpoint[]
         └── Auth[]        (one per security spec, verifiedByHuman=false by default)
+        └── Response[]    (one per (endpoint, statusCode) pair — NEW)
         └── ApiVersion    (tied to runId)
 ```
 
-**Tests: 6** — repository URL, one endpoint per route, endpoints belong to API, Auth entity for secured route, ApiVersion with run ID, empty result.
+**Post-review additions:**
+
+| Change | Detail |
+|---|---|
+| `Api.hostUrl?: string` | Durable host URL field per API (not per-run). Input for `host-prober` cross-source probing. Was entirely unrepresented in contracts before this fix. |
+| `Response` entity | `{ id, endpointId, statusCode, description, content }` — linked to `Endpoint` by `endpointId`. Response data was extracted by the parser but dropped between `ExtractionResult` and the graph. Now preserved. |
+| `buildGraph(…, hostUrl?)` | Accepts optional `hostUrl` and passes it to `Api`; iterates `route.responses` to populate `Response` entities. |
+| `ICanonicalGraph` invariant | Interface docstring codifies: probe results inform quality signals only; `upsert*`/`saveGraph` must never be called with data from `host-prober`. |
+
+**Tests: 8** — repository URL, one endpoint per route, endpoints belong to API, Auth entity, ApiVersion with run ID, empty graph, **Response entities populated from route data (new)**, **hostUrl threaded through to Api (new)**.
 
 ---
 
@@ -180,11 +190,39 @@ Invalid transitions throw. Terminal states cannot be transitioned away from.
 
 **New files:** `src/index.ts` (full), `src/__tests__/index.test.ts` (full, snapshot)
 
-**`generateOpenApi(graph: ApiGraph): OpenApiDocument`** — pure function. Produces a valid OpenAPI 3.1.0 document. Generated artifacts are never edited directly by humans.
+**`generateOpenApi(graph: ApiGraph): OpenApiDocument`** — pure function. Produces a valid OpenAPI 3.1.0 document.
 
-Output structure: `openapi: 3.1.0` · `info.title` from `api.name` · `info.version` from `versions[0]` · `paths` with one entry per endpoint · security from Auth entities.
+After the post-review fix, the generator queries `graph.responses` per endpoint to emit real per-status-code response entries. Falls back to `'200': { description: 'Success' }` only when no response data exists in the graph (e.g., Phase 1 Express parser which declares `models: not supported`).
 
 **Tests: 5** — version field, title from API name, path entries per endpoint, snapshot, empty graph.
+
+---
+
+### `packages/repository-loader` (new — added post-review)
+
+**New package:** closes the gap between "pass a local path" (Phase 1 CLI) and "accept a GitHub URL" (Phase 2 worker-service requirement).
+
+| Export | Description |
+|---|---|
+| `validateRepositoryUrl(url)` | Enforces `https://` + allowed-host allowlist (`github.com`, `gitlab.com`, `bitbucket.org`). Throws `RepositoryUrlNotAllowedError` for private IPs, `http://`, or unlisted hosts — same SSRF-awareness principle as `host-prober`. |
+| `cloneRepository(url, opts?)` | `spawnSync('git', ['clone', …])` with array args — no shell, no injection. Returns `CloneResult { localPath, commitSha, ownsDirectory }`. |
+| `detectHeadSha(repoDir)` | Resolves HEAD commit SHA from an already-checked-out local repo. |
+| `cleanupRepository(result)` | Removes the cloned directory only if `ownsDirectory = true`. |
+
+**Security:** `ALLOWED_GIT_HOSTS` is an explicit Set. Adding a self-hosted GitLab/GitHub Enterprise instance requires a deliberate code change — won't silently accept arbitrary git URLs.
+
+**Tests: 13** — URL allowlist (github/gitlab/bitbucket pass; http, private IP, internal hostname fail), detectHeadSha with a real in-test git repo, cleanup ownership semantics.
+
+---
+
+### `packages/host-prober` — post-review additions
+
+`probeHost()` docstring now explicitly states the invariant:
+> _Return value contract: probe results inform quality-gate signals only. They must NEVER be used to create or modify Endpoint entities in the canonical graph._
+
+The redirect dead code (`assertRedirectIsSafe` is checked but the redirect is never followed) is documented as intentional fail-closed behaviour, not an oversight.
+
+The DNS TOCTOU gap is tracked in `src/ssrf-guard.ts` with a `⚠️ TOCTOU LIMITATION` comment (see Tracked items section).
 
 ---
 
@@ -229,20 +267,21 @@ The unit-tests job in `.github/workflows/ci.yml` now runs `pnpm run build` **bef
 | `parsers/express` | 22 | unit + golden-repo |
 | `host-prober` | 27 | **SSRF security tests** |
 | `validation-engine` | 12 | 4 rules × pass+fail |
-| `quality-gates` | 6 | signals + gate outcomes |
+| `quality-gates` | 7 | signals + gate outcomes + per-endpoint discrimination |
 | `evidence-ledger` | 6 | append-only ledger |
-| `canonical-graph` | 6 | buildGraph |
+| `canonical-graph` | 8 | buildGraph + Response entity + hostUrl |
 | `extraction-run-tracker` | 7 | state machine |
 | `generators/openapi` | 5 | pure function + snapshot |
 | `core-extraction-engine` | 6 | full pipeline integration |
+| `repository-loader` | 13 | URL allowlist + SSRF + clone lifecycle |
 | `audit-log` | 2 | stub |
 | `llm-enrichment` | 2 | stub |
 | `generators/markdown` | 2 | stub |
 | `apps/*` | 4 | NestJS module defined |
 | `tools/arch-lint` | 13 | boundary rule tests (10 positive + 3 negative) |
-| **Total** | **141** | all passing |
+| **Total** | **160** | all passing |
 
-**Build:** 19/19 packages clean · **Lint:** clean · **Arch-lint:** 146 modules, 194 dependencies, 0 violations
+**Build:** 20/20 packages clean · **Lint:** clean · **Arch-lint:** 152 modules, 209 dependencies, 0 violations
 
 ---
 
@@ -254,9 +293,9 @@ The unit-tests job in `.github/workflows/ci.yml` now runs `pnpm run build` **bef
 | `parsers/express` v1.0.0 — capability declaration + golden-repo suite; no parser change merges without suite passing | ✅ Verified — golden.test.ts enforces expected.json; 22 tests |
 | `host-prober` — SSRF security tests all passing | ✅ Verified — 27 security tests |
 | `validation-engine` — 4 mechanical rules, one test per rule (pass + fail) | ✅ Verified — 12 tests |
-| `quality-gates` — signals computed, no auto-accept, security field exception | ✅ Verified — 6 tests |
+| `quality-gates` — signals computed, no auto-accept, security field exception | ✅ Verified — 7 tests |
 | `evidence-ledger` — append-only, no update/delete at interface level | ✅ Verified — 6 tests |
-| `canonical-graph` — `buildGraph(result, evidence)` + entity tests | ✅ Verified — 6 tests |
+| `canonical-graph` — `buildGraph(result, evidence)` + entity tests | ✅ Verified — 8 tests (incl. Response + hostUrl) |
 | `extraction-run-tracker` — status transitions enforced | ✅ Verified — 7 tests |
 | `generators/openapi` — pure function, snapshot-tested | ✅ Verified — 5 tests |
 | `core-extraction-engine` — full pipeline wired, CLI command works | ✅ Verified — 6 integration tests |
@@ -277,7 +316,17 @@ The unit-tests job in `.github/workflows/ci.yml` now runs `pnpm run build` **bef
 
 **Note on core-extraction-engine branches:** The 50% branch figure reflects error-path branches (parser not found, parser throws, path not exists, quality-gate reject) that are partially covered; the integration tests exercise the main success path and several error paths but not all combinations.
 
-**Phase 1 complete. Proceed to Phase 2 with the two tracked items below.**
+**Phase 1 complete (including post-review gap fixes). Proceed to Phase 2.**
+
+### Changes applied after initial Phase 1 review
+
+| Item | Change |
+|---|---|
+| `quality-gates` per-endpoint scoring | Fixed — each endpoint now scored on its own `sourceLocation` / response / body completeness, conditioned on parser capabilities. Previously all endpoints in a run received the same run-level average score. |
+| `Api.hostUrl` missing | Added to contracts and wired through `buildGraph()`. |
+| `Response` entity missing | Added to contracts; `buildGraph()` now populates from `ParsedRoute.responses`; OpenAPI generator uses real response data. |
+| `repository-loader` missing | New package — closes the CLI local-path → worker GitHub-URL gap before Phase 2 worker-service wires it up. |
+| Runtime-probe-never-creates-endpoints | Codified as explicit invariant in `ICanonicalGraph` interface and `probeHost()` return-value contract. |
 
 ---
 
