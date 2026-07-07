@@ -1,0 +1,17 @@
+{
+  "name": "@api-catalog/validation-engine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mechanical checks only — no AI, no DB. Duplicate routes, orphan schemas, missing bodies, invalid refs. Phase 1 implementation.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "test": "jest",
+    "lint": "eslint src --ext .ts"
+  },
+  "dependencies": {
+    "@api-catalog/contracts": "workspace:*"
+  }
+}

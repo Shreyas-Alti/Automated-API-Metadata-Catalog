@@ -1,0 +1,17 @@
+{
+  "name": "@api-catalog/host-prober",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ONLY module allowed to contact user-supplied host URLs. Owns all SSRF protections. Phase 1 implementation.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "test": "jest",
+    "lint": "eslint src --ext .ts"
+  },
+  "dependencies": {
+    "@api-catalog/contracts": "workspace:*"
+  }
+}

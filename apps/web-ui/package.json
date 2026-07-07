@@ -1,0 +1,16 @@
+{
+  "name": "@api-catalog/web-ui",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Frontend — submit, view status, review/edit, publish, browse catalog. Phase 2 implementation. Frontend framework decided at Phase 2 start.",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "test": "jest",
+    "lint": "eslint src --ext .ts"
+  },
+  "dependencies": {
+    "@api-catalog/contracts": "workspace:*"
+  },
+  "devDependencies": {}
+}

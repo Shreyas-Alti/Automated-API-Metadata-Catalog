@@ -1,0 +1,17 @@
+{
+  "name": "@api-catalog/audit-log",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Immutable event log for human review edits and every gate decision (score + outcome). Phase 2 implementation.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "test": "jest",
+    "lint": "eslint src --ext .ts"
+  },
+  "dependencies": {
+    "@api-catalog/contracts": "workspace:*"
+  }
+}

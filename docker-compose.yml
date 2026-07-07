@@ -1,0 +1,63 @@
+version: '3.9'
+
+# CI / staging reference configuration — NOT used for local dev.
+# Local dev uses a conda environment (see conda-environment.yml + scripts/):
+#   postgres + redis come from conda-forge; MinIO from standalone binary.
+# This file is used by GitHub Actions service containers and by any
+# containerised staging deployment.
+#
+# Stack decisions (recorded per Phase 0):
+#   DB:      PostgreSQL 16
+#   Queue:   Redis (BullMQ)
+#   Storage: MinIO (S3-compatible)
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: api_catalog
+      POSTGRES_USER: api_catalog
+      POSTGRES_PASSWORD: api_catalog_dev
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U api_catalog']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ':9001'
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin_dev
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  postgres_data:
+  minio_data:

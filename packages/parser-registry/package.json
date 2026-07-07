@@ -1,0 +1,17 @@
+{
+  "name": "@api-catalog/parser-registry",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Plugin contract + factory (detectFramework, loadParser) — Phase 1 implementation",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "test": "jest",
+    "lint": "eslint src --ext .ts"
+  },
+  "dependencies": {
+    "@api-catalog/contracts": "workspace:*"
+  }
+}

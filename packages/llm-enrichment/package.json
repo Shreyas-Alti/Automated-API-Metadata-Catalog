@@ -1,0 +1,18 @@
+{
+  "name": "@api-catalog/llm-enrichment",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ONLY module allowed to call an LLM. Structured, redacted input only. Returns AI-tagged evidence only. Never marks security fields as Verified.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "test": "jest",
+    "lint": "eslint src --ext .ts"
+  },
+  "dependencies": {
+    "@api-catalog/contracts": "workspace:*",
+    "@api-catalog/evidence-ledger": "workspace:*"
+  }
+}

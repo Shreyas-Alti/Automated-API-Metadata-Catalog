@@ -1,0 +1,6 @@
+packages:
+  - 'packages/*'
+  - 'packages/parsers/*'
+  - 'packages/generators/*'
+  - 'apps/*'
+  - 'tools/*'

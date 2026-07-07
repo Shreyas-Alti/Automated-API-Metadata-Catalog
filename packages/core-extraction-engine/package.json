@@ -1,0 +1,24 @@
+{
+  "name": "@api-catalog/core-extraction-engine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Orchestrates one full run: parse → validate → gate → probe → evidence → graph. Exposed as CLI + library.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "test": "jest",
+    "lint": "eslint src --ext .ts"
+  },
+  "dependencies": {
+    "@api-catalog/contracts": "workspace:*",
+    "@api-catalog/parser-registry": "workspace:*",
+    "@api-catalog/host-prober": "workspace:*",
+    "@api-catalog/validation-engine": "workspace:*",
+    "@api-catalog/quality-gates": "workspace:*",
+    "@api-catalog/evidence-ledger": "workspace:*",
+    "@api-catalog/canonical-graph": "workspace:*",
+    "@api-catalog/extraction-run-tracker": "workspace:*"
+  }
+}

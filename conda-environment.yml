@@ -1,0 +1,13 @@
+name: api-catalog
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  # Runtime binaries for local dev — pnpm handles all JS/TS packages separately
+  - nodejs=20          # pinned: NestJS + pnpm require Node >= 20
+  - postgresql=16     # pinned to match CI (docker-compose.yml uses postgres:16-alpine)
+  - git
+  # Redis and MinIO are NOT on conda-forge for Windows as server binaries.
+  # Both are downloaded as standalone executables by scripts/infra-init.ps1:
+  #   Redis  — redis-windows project builds (redis-windows/redis-windows on GitHub)
+  #   MinIO  — dl.min.io/server/minio/release/windows-amd64/minio.exe

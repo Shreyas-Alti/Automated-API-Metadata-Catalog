@@ -1,0 +1,25 @@
+{
+  "name": "@api-catalog/auth-service",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Login, org/team membership, RBAC. Phase 2: basic auth (single org). Phase 3: full RBAC.",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "test": "jest",
+    "lint": "eslint src --ext .ts",
+    "start": "node dist/main.js",
+    "start:dev": "ts-node src/main.ts"
+  },
+  "dependencies": {
+    "@api-catalog/contracts": "workspace:*",
+    "@nestjs/common": "^10.0.0",
+    "@nestjs/core": "^10.0.0",
+    "@nestjs/platform-express": "^10.0.0",
+    "reflect-metadata": "^0.2.0",
+    "rxjs": "^7.8.0"
+  },
+  "devDependencies": {
+    "@nestjs/testing": "^10.0.0"
+  }
+}
