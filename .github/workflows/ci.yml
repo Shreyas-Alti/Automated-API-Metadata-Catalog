@@ -41,6 +41,8 @@ jobs:
           node-version: '20'
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
+      - name: Build workspace packages
+        run: pnpm run build
       - name: Run unit tests
         run: pnpm run test:unit
 
