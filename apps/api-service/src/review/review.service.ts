@@ -61,7 +61,18 @@ export class ReviewService {
     });
     if (!run) throw new NotFoundException(`ExtractionRun ${runId} not found`);
 
-    const endpoint = await this.prisma.endpoint.findUnique({ where: { id: endpointId } });
+    const endpoint = await this.prisma.endpoint.findFirst({
+      where: {
+        id: endpointId,
+        // Verify the endpoint belongs to the API produced by this specific run,
+        // not just any API in the caller's org. Prevents IDOR where a caller
+        // with a valid runId can supply an arbitrary endpointId from a different run/API.
+        api: {
+          organisationId,
+          versions: { some: { extractionRunId: runId } },
+        },
+      },
+    });
     if (!endpoint) throw new NotFoundException(`Endpoint ${endpointId} not found`);
 
     // Record the old value for audit
