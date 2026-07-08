@@ -74,6 +74,12 @@ export class ExtractionProcessor {
       await this.persistGraph(result, extractionRunId);
 
       // --- LLM enrichment (optional — only if OPENAI_API_KEY is configured) ---
+      // Output is persisted as evidence records (source: 'llm-enrichment',
+      // verificationStatus: 'ai-suggested') — NOT written directly to the
+      // canonical Endpoint entity. This preserves the evidence-ledger distinction:
+      // reviewers see AI suggestions as tagged provenance, not as already-accepted
+      // canonical values. Endpoint.summary/description remain null until a human
+      // explicitly accepts/edits them through the review UI.
       const apiKey = process.env['OPENAI_API_KEY'];
       if (apiKey) {
         this.logger.log(`Running LLM enrichment for ${result.graph.endpoints.length} endpoints`);
@@ -87,14 +93,18 @@ export class ExtractionProcessor {
               },
               { apiKey },
             );
-            // Persist AI-suggested evidence (summary, description) to the endpoint
+            // Persist each piece of evidence through the evidence ledger table
             for (const ev of enrichResult.evidence) {
-              if (ev.field === 'summary' || ev.field === 'description') {
-                await this.prisma.endpoint.update({
-                  where: { id: endpoint.id },
-                  data: { [ev.field]: ev.value as string },
-                }).catch(() => { /* endpoint may not exist yet if persistGraph used different IDs */ });
-              }
+              await this.prisma.evidenceRecord.create({
+                data: {
+                  extractionRunId: ev.extractionRunId,
+                  endpointId: ev.endpointId,
+                  field: ev.field,
+                  value: ev.value as object,
+                  source: ev.source,           // 'llm-enrichment'
+                  verificationStatus: ev.verificationStatus,  // 'ai-suggested'
+                },
+              });
             }
           } catch (err) {
             this.logger.warn(`LLM enrichment failed for ${endpoint.method} ${endpoint.path}: ${(err as Error).message}`);
