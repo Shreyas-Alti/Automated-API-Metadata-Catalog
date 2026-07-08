@@ -130,6 +130,17 @@ BullMQ `Worker` consuming `extraction` queue. Pipeline per job:
 
 ---
 
+## Security fixes applied post-review
+
+Both issues were identified during code review after the initial Phase 2 push. Neither was caught by the automated test suite (which had no multi-tenant fixtures), so they're documented here explicitly.
+
+| Issue | Root cause | Fix |
+|---|---|---|
+| **`register()` org-collision (auth/auth.service.ts)** | `organisation.upsert({ where: { slug } })` — if a new user's organisation name slugified to match an existing org's slug, the new user was silently added to that unrelated org with no invite or approval. | Changed to always `create` a new org per registration; slug collisions handled with a numeric suffix (`-1`, `-2`, …). Joining an existing org will require an explicit invite flow (Phase 3). |
+| **`editEndpoint` IDOR (review/review.service.ts)** | `endpoint.findUnique({ where: { id: endpointId } })` — no check that the endpoint belonged to the API produced by the supplied `runId`, or even to the caller's organisation. A legitimate user of Org A, holding a valid `runId`, could supply an arbitrary `endpointId` from any org's API and the code would find and update it. | Changed to `endpoint.findFirst({ where: { id, api: { organisationId, versions: { some: { extractionRunId: runId } } } } })` — the endpoint must belong to the specific API produced by this run, not just any API in the caller's org. |
+
+---
+
 ## Phase 2 Exit Criteria — Status
 
 | Criterion | Status |

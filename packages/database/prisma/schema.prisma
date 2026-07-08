@@ -38,6 +38,8 @@ model Api {
   endpoints    Endpoint[]
   schemas      Schema[]
   versions     ApiVersion[]
+
+  @@index([organisationId])
 }
 
 model Endpoint {
@@ -126,6 +128,9 @@ model ExtractionRun {
 
   organisation    Organisation     @relation(fields: [organisationId], references: [id])
   evidenceRecords EvidenceRecord[]
+
+  @@index([organisationId])
+  @@index([status, organisationId])
 }
 
 // ── Evidence Ledger ──────────────────────────────────────────────────────────
