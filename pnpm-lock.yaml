@@ -197,6 +197,9 @@ importers:
       '@api-catalog/extraction-run-tracker':
         specifier: workspace:*
         version: link:../../packages/extraction-run-tracker
+      '@api-catalog/llm-enrichment':
+        specifier: workspace:*
+        version: link:../../packages/llm-enrichment
       '@nestjs/common':
         specifier: ^10.0.0
         version: 10.4.22(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -269,6 +272,9 @@ importers:
       '@api-catalog/quality-gates':
         specifier: workspace:*
         version: link:../quality-gates
+      '@api-catalog/repository-loader':
+        specifier: workspace:*
+        version: link:../repository-loader
       '@api-catalog/validation-engine':
         specifier: workspace:*
         version: link:../validation-engine

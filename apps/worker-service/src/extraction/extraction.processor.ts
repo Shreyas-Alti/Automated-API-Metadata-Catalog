@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Worker, Job } from 'bullmq';
 import { runExtraction } from '@api-catalog/core-extraction-engine';
+import { enrichEndpoint } from '@api-catalog/llm-enrichment';
 import { PrismaService } from '../database/prisma.service';
 
 export interface ExtractionJobData {
@@ -9,7 +10,6 @@ export interface ExtractionJobData {
   commitSha: string;
   parserName: string;
   hostUrl?: string;
-  localRepoPath?: string;
 }
 
 @Injectable()
@@ -53,7 +53,7 @@ export class ExtractionProcessor {
    * It must NOT re-implement extraction logic.
    */
   private async process(job: Job<ExtractionJobData>): Promise<void> {
-    const { extractionRunId, repositoryUrl, commitSha, parserName, localRepoPath } = job.data;
+    const { extractionRunId, repositoryUrl, commitSha, parserName, hostUrl } = job.data;
 
     this.logger.log(`Processing extraction job for run ${extractionRunId}`);
 
@@ -65,12 +65,42 @@ export class ExtractionProcessor {
         repositoryUrl,
         commitSha,
         parserName,
-        localRepoPath: localRepoPath ?? '/tmp/repo', // worker-service will use repository-loader in Phase 3
+        // No localRepoPath — engine will clone via repository-loader
+        hostUrl,
         apiName: repositoryUrl.split('/').pop() ?? 'unknown',
       });
 
       // Persist the canonical graph to the database
       await this.persistGraph(result, extractionRunId);
+
+      // --- LLM enrichment (optional — only if OPENAI_API_KEY is configured) ---
+      const apiKey = process.env['OPENAI_API_KEY'];
+      if (apiKey) {
+        this.logger.log(`Running LLM enrichment for ${result.graph.endpoints.length} endpoints`);
+        for (const endpoint of result.graph.endpoints) {
+          try {
+            const enrichResult = await enrichEndpoint(
+              {
+                endpointId: endpoint.id,
+                extractionRunId,
+                structuredContext: { method: endpoint.method, path: endpoint.path, tags: endpoint.tags },
+              },
+              { apiKey },
+            );
+            // Persist AI-suggested evidence (summary, description) to the endpoint
+            for (const ev of enrichResult.evidence) {
+              if (ev.field === 'summary' || ev.field === 'description') {
+                await this.prisma.endpoint.update({
+                  where: { id: endpoint.id },
+                  data: { [ev.field]: ev.value as string },
+                }).catch(() => { /* endpoint may not exist yet if persistGraph used different IDs */ });
+              }
+            }
+          } catch (err) {
+            this.logger.warn(`LLM enrichment failed for ${endpoint.method} ${endpoint.path}: ${(err as Error).message}`);
+          }
+        }
+      }
 
       // Update run status
       await this.prisma.extractionRun.update({

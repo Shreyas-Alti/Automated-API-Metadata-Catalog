@@ -1,10 +1,10 @@
 {
   "/_not-found/page": "app/_not-found/page.js",
+  "/catalog/page": "app/catalog/page.js",
   "/catalog/[apiId]/page": "app/catalog/[apiId]/page.js",
   "/extractions/[id]/page": "app/extractions/[id]/page.js",
-  "/catalog/page": "app/catalog/page.js",
   "/page": "app/page.js",
   "/reviews/[runId]/page": "app/reviews/[runId]/page.js",
-  "/reviews/page": "app/reviews/page.js",
-  "/submit/page": "app/submit/page.js"
+  "/submit/page": "app/submit/page.js",
+  "/reviews/page": "app/reviews/page.js"
 }

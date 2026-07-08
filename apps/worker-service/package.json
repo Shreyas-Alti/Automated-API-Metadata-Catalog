@@ -15,6 +15,7 @@
     "@api-catalog/contracts": "workspace:*",
     "@api-catalog/database": "workspace:*",
     "@api-catalog/core-extraction-engine": "workspace:*",
+    "@api-catalog/llm-enrichment": "workspace:*",
     "@api-catalog/canonical-graph": "workspace:*",
     "@api-catalog/extraction-run-tracker": "workspace:*",
     "@api-catalog/audit-log": "workspace:*",

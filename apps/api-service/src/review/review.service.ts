@@ -7,6 +7,10 @@ export interface EditEndpointDto {
   value: string;
 }
 
+// Only these fields can be edited through the review endpoint.
+// Prevents a client from overwriting id, apiId, createdAt, or reassigning endpoints.
+const EDITABLE_ENDPOINT_FIELDS = new Set(['summary', 'description', 'operationId', 'tags']);
+
 @Injectable()
 export class ReviewService {
   constructor(private readonly prisma: PrismaService) {}
@@ -43,6 +47,13 @@ export class ReviewService {
   }
 
   async editEndpoint(runId: string, endpointId: string, dto: EditEndpointDto, reviewerId: string) {
+    // Validate field is in the allowlist — prevents overwriting id, apiId, etc.
+    if (!EDITABLE_ENDPOINT_FIELDS.has(dto.field)) {
+      throw new BadRequestException(
+        `Field '${dto.field}' is not editable. Allowed fields: ${Array.from(EDITABLE_ENDPOINT_FIELDS).join(', ')}`,
+      );
+    }
+
     const run = await this.prisma.extractionRun.findUnique({ where: { id: runId } });
     if (!run) throw new NotFoundException(`ExtractionRun ${runId} not found`);
 
