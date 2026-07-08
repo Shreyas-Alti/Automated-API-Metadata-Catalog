@@ -60,6 +60,25 @@ module.exports = {
         path: 'node_modules[\\\\/](axios|got|node-fetch|undici)',
       },
     },
+    {
+      name: 'no-child-process-outside-repository-loader',
+      comment:
+        'Only repository-loader may spawn child processes (git clone). ' +
+        'tools/arch-lint __tests__ are also permitted since they run depcruise via execSync. ' +
+        'This prevents any other module from accidentally running arbitrary system commands.',
+      severity: 'error',
+      from: {
+        pathNot: [
+          'packages[\\\\/]repository-loader',
+          // arch-lint tests run depcruise via execSync — tests only, not violation-fixtures
+          'tools[\\\\/]arch-lint[\\\\/]src[\\\\/]__tests__',
+        ],
+      },
+      to: {
+        path: '^child_process$',
+        dependencyTypes: ['core'],
+      },
+    },
   ],
   options: {
     doNotFollow: {

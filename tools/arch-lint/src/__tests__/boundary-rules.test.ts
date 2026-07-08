@@ -26,6 +26,7 @@ describe('Architecture boundary rules — config correctness', () => {
     expect(ruleNames).toContain('no-db-outside-allowed-modules');
     expect(ruleNames).toContain('no-llm-outside-llm-enrichment');
     expect(ruleNames).toContain('no-http-client-outside-host-prober');
+    expect(ruleNames).toContain('no-child-process-outside-repository-loader');
   });
 
   it('all three rules have error severity (CI fails on violation)', () => {
@@ -77,6 +78,27 @@ describe('Architecture boundary rules — config correctness', () => {
 
     it('targets common HTTP client library package names', () => {
       expect(rule().to.path).toMatch(/axios|got|node-fetch|undici/);
+    });
+  });
+
+  describe('no-child-process-outside-repository-loader', () => {
+    const rule = () => config.forbidden.find((r) => r.name === 'no-child-process-outside-repository-loader')!;
+
+    it('is defined with error severity', () => {
+      expect(rule()).toBeDefined();
+      expect(rule().severity).toBe('error');
+    });
+
+    it('allows ONLY repository-loader and arch-lint __tests__ to import child_process', () => {
+      const allowed = rule().from.pathNot as string[];
+      expect(allowed.some((p) => p.includes('repository-loader'))).toBe(true);
+      expect(allowed.some((p) => p.includes('arch-lint'))).toBe(true);
+      // violation-fixtures are NOT in the allowlist (they must be caught)
+      expect(allowed.every((p) => !p.includes('violation-fixtures'))).toBe(true);
+    });
+
+    it('targets the child_process built-in module', () => {
+      expect(rule().to.path).toMatch(/child_process/);
     });
   });
 });
@@ -150,5 +172,13 @@ describe('Architecture boundary rules — negative tests (violation detection)',
     );
     expect(result.exitCode).not.toBe(0);
     expect(result.violatedRuleNames).toContain('no-http-client-outside-host-prober');
+  });
+
+  it('[no-child-process-outside-repository-loader] exits non-zero and names the rule when a non-repo-loader module imports child_process', () => {
+    const result = runDepcruiseOnFixture(
+      'tools/arch-lint/src/violation-fixtures/bad-childprocess-import.ts',
+    );
+    expect(result.exitCode).not.toBe(0);
+    expect(result.violatedRuleNames).toContain('no-child-process-outside-repository-loader');
   });
 });
