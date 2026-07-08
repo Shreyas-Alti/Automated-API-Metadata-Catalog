@@ -19,6 +19,7 @@ export interface SubmitExtractionDto { repositoryUrl: string; commitSha?: string
 export interface ExtractionRun { id: string; repositoryUrl: string; status: string; commitSha: string; createdAt: string; }
 export interface ReviewSummary { id: string; repositoryUrl: string; status: string; createdAt: string; }
 export interface Endpoint { id: string; method: string; path: string; summary?: string; description?: string; }
+export interface EvidenceRecord { id: string; endpointId: string; field: string; value: unknown; source: string; verificationStatus: string; }
 export interface CatalogEntry { apiId: string; name: string; repositoryUrl: string; publishedAt: string; }
 
 export const api = {
@@ -36,7 +37,7 @@ export const api = {
   },
   reviews: {
     list: () => apiFetch<ReviewSummary[]>('/api/v1/reviews'),
-    get: (runId: string) => apiFetch<{ run: ExtractionRun; endpoints: Endpoint[] }>(`/api/v1/reviews/${runId}`),
+    get: (runId: string) => apiFetch<{ run: ExtractionRun; endpoints: Endpoint[]; evidence: EvidenceRecord[] }>(`/api/v1/reviews/${runId}`),
     editEndpoint: (runId: string, endpointId: string, field: string, value: string) =>
       apiFetch(`/api/v1/reviews/${runId}/endpoints/${endpointId}`, { method: 'PATCH', body: JSON.stringify({ field, value }) }),
     publish: (runId: string) =>
