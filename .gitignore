@@ -8,3 +8,4 @@ coverage/
 *.log
 .pnpm-debug.log*
 local-data/
+.next/
