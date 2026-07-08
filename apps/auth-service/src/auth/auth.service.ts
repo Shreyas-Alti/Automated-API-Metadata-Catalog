@@ -34,7 +34,7 @@ export class AuthService {
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!valid) throw new UnauthorizedException('Invalid credentials');
 
-    const accessToken = this.jwt.sign({ sub: user.id, email: user.email });
+    const accessToken = this.jwt.sign({ sub: user.id, email: user.email, orgId: user.organisationId });
     return { accessToken, user: { id: user.id, email: user.email, name: user.name, organisationId: user.organisationId } };
   }
 
@@ -42,12 +42,20 @@ export class AuthService {
     const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (existing) throw new ConflictException('Email already registered');
 
-    const slug = dto.organisationName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    // Always create a NEW organisation for each registration.
+    // Joining an existing org requires an explicit invite (Phase 3).
+    // Handle slug collisions by appending a numeric suffix — never silently
+    // add a registrant to an unrelated org that happens to share a slug.
+    const baseSlug = dto.organisationName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    let finalSlug = baseSlug;
+    let attempt = 0;
+    while (await this.prisma.organisation.findUnique({ where: { slug: finalSlug } })) {
+      attempt++;
+      finalSlug = `${baseSlug}-${attempt}`;
+    }
 
-    const org = await this.prisma.organisation.upsert({
-      where: { slug },
-      create: { name: dto.organisationName, slug },
-      update: {},
+    const org = await this.prisma.organisation.create({
+      data: { name: dto.organisationName, slug: finalSlug },
     });
 
     const passwordHash = await bcrypt.hash(dto.password, 12);
@@ -55,7 +63,7 @@ export class AuthService {
       data: { email: dto.email, passwordHash, name: dto.name, organisationId: org.id },
     });
 
-    const accessToken = this.jwt.sign({ sub: user.id, email: user.email });
+    const accessToken = this.jwt.sign({ sub: user.id, email: user.email, orgId: user.organisationId });
     return { accessToken, user: { id: user.id, email: user.email, name: user.name, organisationId: user.organisationId } };
   }
 

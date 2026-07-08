@@ -30,8 +30,8 @@ export class ExtractionService {
     return this.queue;
   }
 
-  async submit(dto: SubmitExtractionDto, _userId: string) {
-    // Create run record in 'pending' state
+  async submit(dto: SubmitExtractionDto, _userId: string, organisationId: string) {
+    // Create run record in 'pending' state, scoped to the submitting organisation
     const run = await this.prisma.extractionRun.create({
       data: {
         repositoryUrl: dto.repositoryUrl,
@@ -39,30 +39,34 @@ export class ExtractionService {
         parserName: dto.parserName ?? 'express',
         parserVersion: '1.0.0',
         status: 'pending',
+        organisationId,
       },
     });
 
-    // Enqueue the job
+    // Enqueue the job — include organisationId so the worker can scope Api creation
     await this.getQueue().add('extract', {
       extractionRunId: run.id,
       repositoryUrl: dto.repositoryUrl,
       commitSha: dto.commitSha ?? 'HEAD',
       parserName: dto.parserName ?? 'express',
       hostUrl: dto.hostUrl,
+      organisationId,
     });
 
     return { id: run.id, status: run.status };
   }
 
-  async findOne(id: string): Promise<object> {
-    const run = await this.prisma.extractionRun.findUnique({ where: { id } });
+  async findOne(id: string, organisationId: string): Promise<object> {
+    const run = await this.prisma.extractionRun.findFirst({
+      where: { id, organisationId },
+    });
     if (!run) throw new NotFoundException(`ExtractionRun ${id} not found`);
     return run;
   }
 
-  async list(_userId: string): Promise<object[]> {
-    // Phase 3: filter by organisation. For now return recent runs.
+  async list(_userId: string, organisationId: string): Promise<object[]> {
     return this.prisma.extractionRun.findMany({
+      where: { organisationId },
       orderBy: { createdAt: 'desc' },
       take: 50,
     });

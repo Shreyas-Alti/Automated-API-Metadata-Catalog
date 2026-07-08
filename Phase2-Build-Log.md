@@ -211,6 +211,7 @@ GET    /
 | Item | Deferred to |
 |---|---|
 | Auth/Response entity editing in review (only Endpoint fields editable) | Phase 3 |
+| Mount-path prefix resolution (`app.use('/api', router)` → routes appear as `/articles` not `/api/articles`) | Phase 2/Phase 4 parser improvement — declared in `EXPRESS_PARSER_CAPABILITIES.middleware: 'not supported'`; live in the real E2E run (RealWorld spec `/api/articles` extracted as `/articles`) |
 | DB persistence verified only via integration (no unit tests against real Postgres) | Phase 3 observability |
 | Web UI rendered without a real Postgres/Redis stack in CI | Phase 3 E2E test suite |
 | DNS TOCTOU in `host-prober` | Before Phase 3 auto-accept / drift job |

@@ -9,7 +9,7 @@ import type {
 
 export interface IExtractionRunTracker {
   create(
-    input: Pick<ExtractionRun, 'repositoryUrl' | 'commitSha' | 'parserName' | 'parserVersion'>,
+    input: Pick<ExtractionRun, 'repositoryUrl' | 'commitSha' | 'parserName' | 'parserVersion'> & { organisationId?: string },
   ): Promise<ExtractionRun>;
   transition(id: string, status: ExtractionRunStatus): Promise<ExtractionRun>;
   setValidationSummary(id: string, summary: ValidationSummary): Promise<ExtractionRun>;
@@ -41,7 +41,7 @@ function assertTransitionAllowed(from: ExtractionRunStatus, to: ExtractionRunSta
 export class InMemoryExtractionRunTracker implements IExtractionRunTracker {
   private readonly _runs = new Map<string, ExtractionRun>();
 
-  async create(input: Pick<ExtractionRun, 'repositoryUrl' | 'commitSha' | 'parserName' | 'parserVersion'>): Promise<ExtractionRun> {
+  async create(input: Pick<ExtractionRun, 'repositoryUrl' | 'commitSha' | 'parserName' | 'parserVersion'> & { organisationId?: string }): Promise<ExtractionRun> {
     const run: ExtractionRun = { id: randomUUID(), ...input, status: 'pending', createdAt: new Date(), updatedAt: new Date() };
     this._runs.set(run.id, run);
     return run;
@@ -101,8 +101,8 @@ function rowToRun(row: {
 export class PrismaExtractionRunTracker implements IExtractionRunTracker {
   constructor(private readonly prisma: PrismaClient) {}
 
-  async create(input: Pick<ExtractionRun, 'repositoryUrl' | 'commitSha' | 'parserName' | 'parserVersion'>): Promise<ExtractionRun> {
-    const row = await this.prisma.extractionRun.create({ data: { ...input, status: 'pending' } });
+  async create(input: Pick<ExtractionRun, 'repositoryUrl' | 'commitSha' | 'parserName' | 'parserVersion'> & { organisationId?: string }): Promise<ExtractionRun> {
+    const row = await this.prisma.extractionRun.create({ data: { ...input, status: 'pending', organisationId: input.organisationId ?? '__local__' } });
     return rowToRun(row);
   }
 

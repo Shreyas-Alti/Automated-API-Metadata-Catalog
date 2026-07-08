@@ -7,9 +7,9 @@ import type { ApiGraph } from '@api-catalog/contracts';
 export class CatalogService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async listPublished() {
+  async listPublished(organisationId: string) {
     const versions = await this.prisma.apiVersion.findMany({
-      where: { publishedAt: { not: null } },
+      where: { publishedAt: { not: null }, api: { organisationId } },
       include: { api: { include: { repository: true } } },
       orderBy: { publishedAt: 'desc' },
       distinct: ['apiId'],
@@ -24,9 +24,9 @@ export class CatalogService {
     }));
   }
 
-  async findOne(apiId: string) {
-    const api = await this.prisma.api.findUnique({
-      where: { id: apiId },
+  async findOne(apiId: string, organisationId: string) {
+    const api = await this.prisma.api.findFirst({
+      where: { id: apiId, organisationId },
       include: {
         repository: true,
         endpoints: { include: { responses: true, auths: true } },

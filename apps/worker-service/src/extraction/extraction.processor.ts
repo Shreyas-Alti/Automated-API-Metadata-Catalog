@@ -10,6 +10,7 @@ export interface ExtractionJobData {
   commitSha: string;
   parserName: string;
   hostUrl?: string;
+  organisationId: string;
 }
 
 @Injectable()
@@ -53,7 +54,7 @@ export class ExtractionProcessor {
    * It must NOT re-implement extraction logic.
    */
   private async process(job: Job<ExtractionJobData>): Promise<void> {
-    const { extractionRunId, repositoryUrl, commitSha, parserName, hostUrl } = job.data;
+    const { extractionRunId, repositoryUrl, commitSha, parserName, hostUrl, organisationId } = job.data;
 
     this.logger.log(`Processing extraction job for run ${extractionRunId}`);
 
@@ -71,7 +72,7 @@ export class ExtractionProcessor {
       });
 
       // Persist the canonical graph to the database
-      await this.persistGraph(result, extractionRunId);
+      await this.persistGraph(result, extractionRunId, organisationId);
 
       // --- LLM enrichment (optional — only if OPENAI_API_KEY is configured) ---
       // Output is persisted as evidence records (source: 'llm-enrichment',
@@ -133,7 +134,7 @@ export class ExtractionProcessor {
     }
   }
 
-  private async persistGraph(result: Awaited<ReturnType<typeof runExtraction>>, runId: string) {
+  private async persistGraph(result: Awaited<ReturnType<typeof runExtraction>>, runId: string, organisationId: string) {
     const { graph } = result;
 
     // Upsert repository
@@ -143,12 +144,13 @@ export class ExtractionProcessor {
       update: { name: graph.repository.name },
     });
 
-    // Create API
+    // Create API — scoped to the submitting organisation
     const api = await this.prisma.api.create({
       data: {
         repositoryId: repo.id,
         name: graph.api.name,
         hostUrl: graph.api.hostUrl,
+        organisationId,
       },
     });
 

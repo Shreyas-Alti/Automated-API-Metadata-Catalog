@@ -1,4 +1,4 @@
-import { Controller, Get, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, UseGuards, Request } from '@nestjs/common';
 import { CatalogService } from './catalog.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
@@ -9,13 +9,13 @@ export class CatalogController {
 
   /** List all published APIs. */
   @Get()
-  list() {
-    return this.service.listPublished();
+  list(@Request() req: { user: { organisationId: string } }) {
+    return this.service.listPublished(req.user.organisationId);
   }
 
   /** Get a published API with its endpoints and OpenAPI document. */
   @Get(':apiId')
-  findOne(@Param('apiId') apiId: string) {
-    return this.service.findOne(apiId);
+  findOne(@Param('apiId') apiId: string, @Request() req: { user: { organisationId: string } }) {
+    return this.service.findOne(apiId, req.user.organisationId);
   }
 }

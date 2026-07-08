@@ -15,15 +15,17 @@ const EDITABLE_ENDPOINT_FIELDS = new Set(['summary', 'description', 'operationId
 export class ReviewService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async listPendingReviews(): Promise<object[]> {
+  async listPendingReviews(organisationId: string): Promise<object[]> {
     return this.prisma.extractionRun.findMany({
-      where: { status: 'review_required' },
+      where: { status: 'review_required', organisationId },
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  async getReview(runId: string): Promise<object> {
-    const run = await this.prisma.extractionRun.findUnique({ where: { id: runId } });
+  async getReview(runId: string, organisationId: string): Promise<object> {
+    const run = await this.prisma.extractionRun.findFirst({
+      where: { id: runId, organisationId },
+    });
     if (!run) throw new NotFoundException(`ExtractionRun ${runId} not found`);
     if (!['review_required', 'published'].includes(run.status)) {
       throw new BadRequestException(`Run ${runId} is not in review state (status: ${run.status})`);
@@ -46,7 +48,7 @@ export class ReviewService {
     return { run, api: version?.api ?? null, evidence };
   }
 
-  async editEndpoint(runId: string, endpointId: string, dto: EditEndpointDto, reviewerId: string) {
+  async editEndpoint(runId: string, endpointId: string, dto: EditEndpointDto, reviewerId: string, organisationId: string) {
     // Validate field is in the allowlist — prevents overwriting id, apiId, etc.
     if (!EDITABLE_ENDPOINT_FIELDS.has(dto.field)) {
       throw new BadRequestException(
@@ -54,7 +56,9 @@ export class ReviewService {
       );
     }
 
-    const run = await this.prisma.extractionRun.findUnique({ where: { id: runId } });
+    const run = await this.prisma.extractionRun.findFirst({
+      where: { id: runId, organisationId },
+    });
     if (!run) throw new NotFoundException(`ExtractionRun ${runId} not found`);
 
     const endpoint = await this.prisma.endpoint.findUnique({ where: { id: endpointId } });
@@ -85,8 +89,10 @@ export class ReviewService {
     return { ok: true, endpointId, field: dto.field };
   }
 
-  async publish(runId: string, _reviewerId: string) {
-    const run = await this.prisma.extractionRun.findUnique({ where: { id: runId } });
+  async publish(runId: string, _reviewerId: string, organisationId: string) {
+    const run = await this.prisma.extractionRun.findFirst({
+      where: { id: runId, organisationId },
+    });
     if (!run) throw new NotFoundException(`ExtractionRun ${runId} not found`);
     if (run.status !== 'review_required') {
       throw new BadRequestException(`Run ${runId} is not in review_required state`);

@@ -29,13 +29,15 @@ model Api {
   description  String?
   /// The URL of the running API host — used by host-prober for cross-source probing
   hostUrl      String?
+  organisationId String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  repository Repository  @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-  endpoints  Endpoint[]
-  schemas    Schema[]
-  versions   ApiVersion[]
+  repository   Repository   @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  organisation Organisation @relation(fields: [organisationId], references: [id])
+  endpoints    Endpoint[]
+  schemas      Schema[]
+  versions     ApiVersion[]
 }
 
 model Endpoint {
@@ -118,9 +120,11 @@ model ExtractionRun {
   status            String   @default("pending")
   validationSummary Json?
   gateOutcome       Json?
+  organisationId    String
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
+  organisation    Organisation     @relation(fields: [organisationId], references: [id])
   evidenceRecords EvidenceRecord[]
 }
 
@@ -173,7 +177,9 @@ model Organisation {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users User[]
+  users          User[]
+  apis           Api[]
+  extractionRuns ExtractionRun[]
 }
 
 model User {

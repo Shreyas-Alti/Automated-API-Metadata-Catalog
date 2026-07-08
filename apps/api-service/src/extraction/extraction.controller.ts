@@ -20,19 +20,19 @@ export class ExtractionController {
   /** Submit a repository for extraction. */
   @Post()
   @HttpCode(HttpStatus.ACCEPTED)
-  submit(@Body() dto: SubmitExtractionDto, @Request() req: { user: { userId: string } }) {
-    return this.service.submit(dto, req.user.userId);
+  submit(@Body() dto: SubmitExtractionDto, @Request() req: { user: { userId: string; organisationId: string } }) {
+    return this.service.submit(dto, req.user.userId, req.user.organisationId);
   }
 
   /** Get the status of an extraction run. */
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.service.findOne(id);
+  findOne(@Param('id') id: string, @Request() req: { user: { organisationId: string } }) {
+    return this.service.findOne(id, req.user.organisationId);
   }
 
   /** List all extraction runs for the current user's organisation. */
   @Get()
-  list(@Request() req: { user: { userId: string } }) {
-    return this.service.list(req.user.userId);
+  list(@Request() req: { user: { userId: string; organisationId: string } }) {
+    return this.service.list(req.user.userId, req.user.organisationId);
   }
 }

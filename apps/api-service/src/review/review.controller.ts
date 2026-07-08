@@ -20,14 +20,14 @@ export class ReviewController {
 
   /** List extraction runs that are pending human review. */
   @Get()
-  list() {
-    return this.service.listPendingReviews();
+  list(@Request() req: { user: { organisationId: string } }) {
+    return this.service.listPendingReviews(req.user.organisationId);
   }
 
   /** Get the full draft for a review (endpoints + evidence + scores). */
   @Get(':runId')
-  findOne(@Param('runId') runId: string) {
-    return this.service.getReview(runId);
+  findOne(@Param('runId') runId: string, @Request() req: { user: { organisationId: string } }) {
+    return this.service.getReview(runId, req.user.organisationId);
   }
 
   /** Edit a single endpoint's field. Recorded in the audit log. */
@@ -36,15 +36,15 @@ export class ReviewController {
     @Param('runId') runId: string,
     @Param('endpointId') endpointId: string,
     @Body() dto: EditEndpointDto,
-    @Request() req: { user: { userId: string } },
+    @Request() req: { user: { userId: string; organisationId: string } },
   ) {
-    return this.service.editEndpoint(runId, endpointId, dto, req.user.userId);
+    return this.service.editEndpoint(runId, endpointId, dto, req.user.userId, req.user.organisationId);
   }
 
   /** Publish a reviewed extraction — transitions run to 'published'. */
   @Post(':runId/publish')
   @HttpCode(HttpStatus.OK)
-  publish(@Param('runId') runId: string, @Request() req: { user: { userId: string } }) {
-    return this.service.publish(runId, req.user.userId);
+  publish(@Param('runId') runId: string, @Request() req: { user: { userId: string; organisationId: string } }) {
+    return this.service.publish(runId, req.user.userId, req.user.organisationId);
   }
 }
