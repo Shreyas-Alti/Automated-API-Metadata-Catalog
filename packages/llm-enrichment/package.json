@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@api-catalog/contracts": "workspace:*",
-    "@api-catalog/evidence-ledger": "workspace:*"
+    "@api-catalog/evidence-ledger": "workspace:*",
+    "openai": "^4.0.0"
   }
 }

@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@api-catalog/contracts": "workspace:*",
-    "@api-catalog/canonical-graph": "workspace:*"
+    "@api-catalog/canonical-graph": "workspace:*",
+    "@api-catalog/database": "workspace:*"
   }
 }

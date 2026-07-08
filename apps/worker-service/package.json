@@ -13,7 +13,11 @@
   },
   "dependencies": {
     "@api-catalog/contracts": "workspace:*",
+    "@api-catalog/database": "workspace:*",
     "@api-catalog/core-extraction-engine": "workspace:*",
+    "@api-catalog/canonical-graph": "workspace:*",
+    "@api-catalog/extraction-run-tracker": "workspace:*",
+    "@api-catalog/audit-log": "workspace:*",
     "@nestjs/common": "^10.0.0",
     "@nestjs/core": "^10.0.0",
     "@nestjs/platform-express": "^10.0.0",

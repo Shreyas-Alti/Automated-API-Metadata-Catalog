@@ -2,15 +2,24 @@
   "name": "@api-catalog/web-ui",
   "version": "0.1.0",
   "private": true,
-  "description": "Frontend — submit, view status, review/edit, publish, browse catalog. Phase 2 implementation. Frontend framework decided at Phase 2 start.",
+  "description": "Next.js frontend — submit, review/edit, publish, catalog browse.",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "jest",
-    "lint": "eslint src --ext .ts"
+    "lint": "eslint src --ext .ts,.tsx"
   },
   "dependencies": {
-    "@api-catalog/contracts": "workspace:*"
+    "@api-catalog/contracts": "workspace:*",
+    "next": "^14.0.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0"
+  }
 }
+

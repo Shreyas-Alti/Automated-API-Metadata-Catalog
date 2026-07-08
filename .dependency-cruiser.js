@@ -26,6 +26,8 @@ module.exports = {
           'packages[\\\\/]extraction-run-tracker',
           'packages[\\\\/]audit-log',
           'apps[\\\\/]auth-service',
+          // packages/database IS the DB layer — it directly wraps @prisma/client
+          'packages[\\\\/]database',
         ],
       },
       to: {

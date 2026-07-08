@@ -1,0 +1,189 @@
+// This is your Prisma schema file.
+// Learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Canonical Graph ──────────────────────────────────────────────────────────
+
+model Repository {
+  id        String   @id @default(uuid())
+  url       String   @unique
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  apis Api[]
+}
+
+model Api {
+  id           String  @id @default(uuid())
+  repositoryId String
+  name         String
+  description  String?
+  /// The URL of the running API host — used by host-prober for cross-source probing
+  hostUrl      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  repository Repository  @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  endpoints  Endpoint[]
+  schemas    Schema[]
+  versions   ApiVersion[]
+}
+
+model Endpoint {
+  id          String  @id @default(uuid())
+  apiId       String
+  method      String
+  path        String
+  operationId String?
+  summary     String?
+  description String?
+  tags        String[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  api       Api        @relation(fields: [apiId], references: [id], onDelete: Cascade)
+  auths     Auth[]
+  responses Response[]
+}
+
+/// Auth.verifiedByHuman: auth fields can never be AI-verified — enforced in llm-enrichment
+model Auth {
+  id              String   @id @default(uuid())
+  endpointId      String
+  type            String
+  scheme          String?
+  scopes          String[]
+  verifiedByHuman Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  endpoint Endpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+}
+
+/// Per-endpoint response entity. Linked by endpointId — not embedded in Endpoint —
+/// so each (endpoint, statusCode) pair is a first-class entity that can be reviewed independently.
+model Response {
+  id          String   @id @default(uuid())
+  endpointId  String
+  statusCode  String
+  description String?
+  /// JSONB: mirrors ParsedResponse.content (media-type → schema map)
+  content     Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  endpoint Endpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+}
+
+model Schema {
+  id         String   @id @default(uuid())
+  apiId      String
+  name       String
+  definition Json
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  api Api @relation(fields: [apiId], references: [id], onDelete: Cascade)
+}
+
+model ApiVersion {
+  id              String    @id @default(uuid())
+  apiId           String
+  extractionRunId String
+  version         String
+  publishedAt     DateTime?
+  createdAt       DateTime  @default(now())
+
+  api Api @relation(fields: [apiId], references: [id], onDelete: Cascade)
+}
+
+// ── Extraction Run ───────────────────────────────────────────────────────────
+
+model ExtractionRun {
+  id                String   @id @default(uuid())
+  repositoryUrl     String
+  commitSha         String
+  parserName        String
+  parserVersion     String
+  /// One of: pending | running | parser_error | validation_failed | quality_gate_failed | review_required | published
+  status            String   @default("pending")
+  validationSummary Json?
+  gateOutcome       Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  evidenceRecords EvidenceRecord[]
+}
+
+// ── Evidence Ledger ──────────────────────────────────────────────────────────
+
+model EvidenceRecord {
+  id                 String   @id @default(uuid())
+  extractionRunId    String
+  endpointId         String
+  field              String
+  value              Json
+  /// One of: parser | host-prober | llm-enrichment | human-review
+  source             String
+  /// One of: verified | ai-suggested | unverified
+  verificationStatus String
+  timestamp          DateTime @default(now())
+  metadata           Json?
+
+  extractionRun ExtractionRun @relation(fields: [extractionRunId], references: [id], onDelete: Cascade)
+}
+
+// ── Audit Log ────────────────────────────────────────────────────────────────
+
+/// Immutable event log. Records human edits and every gate decision.
+/// No updates or deletes — append only.
+model AuditEvent {
+  id              String   @id @default(uuid())
+  /// One of: human-edit | gate-decision
+  kind            String
+  extractionRunId String
+  endpointId      String
+  // human-edit fields
+  field           String?
+  oldValue        Json?
+  newValue        Json?
+  reviewerId      String?
+  // gate-decision fields
+  score           Float?
+  outcome         String?
+  hasSecurityField Boolean?
+  timestamp       DateTime @default(now())
+}
+
+// ── Users & Organisation ─────────────────────────────────────────────────────
+
+model Organisation {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users User[]
+}
+
+model User {
+  id             String   @id @default(uuid())
+  email          String   @unique
+  passwordHash   String
+  name           String
+  organisationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organisation Organisation @relation(fields: [organisationId], references: [id])
+}

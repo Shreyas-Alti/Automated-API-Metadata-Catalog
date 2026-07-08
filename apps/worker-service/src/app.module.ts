@@ -1,13 +1,11 @@
 import 'reflect-metadata';
 import { Module } from '@nestjs/common';
+import { ExtractionModule } from './extraction/extraction.module';
 
-// worker-service — Phase 0 stub
-// Phase 2 implementation: thin wrapper around core-extraction-engine.
-// Consumes BullMQ job queue, calls the same public interface as the CLI.
-// Contract test: must call core-extraction-engine's public interface, not a reimplementation.
+// worker-service: thin wrapper around core-extraction-engine.
+// Consumes BullMQ 'extraction' queue. Calls the same public interface as the CLI.
 @Module({
-  imports: [],
-  controllers: [],
-  providers: [],
+  imports: [ExtractionModule],
 })
 export class AppModule {}
+
