@@ -12,27 +12,27 @@ const program = new Command();
 
 program
   .name('extract-api')
-  .description('Extract API metadata from a local repository')
+  .description('Extract API metadata from a local path or a remote GitHub/GitLab/Bitbucket repository')
   .version('1.0.0')
-  .requiredOption('--repo <path>', 'Local path to the repository')
+  .requiredOption('--repo <url-or-path>', 'GitHub/GitLab/Bitbucket URL or local path to the repository')
   .requiredOption('--commit <sha>', 'Commit SHA for reproducibility (use HEAD if unknown)')
   .requiredOption('--parser <name>', 'Parser to use (express)')
   .option('--api-name <name>', 'Human-readable API name (defaults to repo directory name)')
   .option('--output <file>', 'Write OpenAPI JSON to this file (defaults to stdout)')
   .action(async (options: { repo: string; commit: string; parser: string; apiName?: string; output?: string }) => {
-    const repoPath = path.resolve(options.repo);
+    const isRemoteUrl = options.repo.startsWith('https://') || options.repo.startsWith('http://');
 
-    if (!fs.existsSync(repoPath)) {
-      process.stderr.write(`Error: repo path does not exist: ${repoPath}\n`);
+    if (!isRemoteUrl && !fs.existsSync(options.repo)) {
+      process.stderr.write(`Error: local path does not exist: ${options.repo}\n`);
       process.exit(1);
     }
 
     try {
       const result = await runExtraction({
-        repositoryUrl: `file://${repoPath}`,
+        repositoryUrl: isRemoteUrl ? options.repo : `file://${path.resolve(options.repo)}`,
         commitSha: options.commit,
         parserName: options.parser,
-        localRepoPath: repoPath,
+        localRepoPath: isRemoteUrl ? undefined : path.resolve(options.repo),
         apiName: options.apiName,
       });
 
