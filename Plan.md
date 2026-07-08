@@ -244,7 +244,27 @@ lint → unit tests → integration tests → golden-repo regression tests → b
 - Only `host-prober` may contact a user-supplied URL; only `llm-enrichment` may contact an LLM; only the entities listed in the module map may touch the database — enforced architecturally via CI lint rules, not convention.
 - True Auto-Accept is disabled until Phase 3, and only enabled for score bands supported by real production calibration data, not asserted upfront.
 
+---
 
+## Engineering Invariants (apply in every phase, to every contributor)
+
+These are process rules, not tasks. They apply to all future work regardless of which parser or feature is being built — the same way the Non-Negotiable Guardrails above apply regardless of which module is being written.
+
+1. **Every parser bug becomes a permanent regression fixture.** When a parser fails on a real-world repo (wrong paths, missed routes, parse error), that repo or a minimal reproduction of it becomes a checked-in correctness fixture. The fixture must fail before the fix and pass after. "Fixed" without a fixture means the bug can silently reappear.
+
+2. **Every security bug gets a regression test before the fix is merged.** The test must demonstrate the vulnerability is present on the branch before the fix (e.g. an IDOR test that returns 200 on the vulnerable branch) and absent after. A security fix without a corresponding test is incomplete.
+
+3. **No optimization is implemented without measured evidence.** Before changing a query, adding a cache, parallelizing workers, or migrating a parser, there must be a profiling result, a benchmark, or usage data that justifies it. "This will be faster" is not sufficient.
+
+4. **Every generated artifact must be reproducible from (repository, commit SHA, parser version) alone.** If given the same three inputs, running the pipeline again must produce the same OpenAPI document, Markdown, or SDK. Non-determinism in generated output is a bug.
+
+5. **Runtime probes may verify but never create canonical entities.** `host-prober` results inform quality signals and cross-source agreement. They must never be used to create, update, or delete `Endpoint`, `Schema`, `Auth`, or any other canonical graph entity. Endpoints are created exclusively by the static extraction pipeline.
+
+6. **Structural facts originate only from static analysis or human review.** Route paths, HTTP methods, response schemas, auth requirements — these must come from the parser (static analysis) or from an explicit human edit (review UI + audit log). LLM inference produces `ai-suggested` evidence only, never structural facts. This invariant is the reason `evidence-ledger` exists as a separate concept from the canonical graph.
+
+**How these interact with the Non-Negotiable Guardrails above:** the guardrails define *what* is forbidden (LLM writing structural facts, auto-accept on security fields, etc.). These invariants define *how* we work (fixtures for every bug, tests for every security fix, etc.). Both are enforced indefinitely — there is no phase after which either set is relaxed.
+
+---
 
 ## Aditional Instructions(Apply is applicable) 
 
