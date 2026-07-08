@@ -13,12 +13,21 @@ export const EXTRACTION_QUEUE = 'extraction';
 
 @Injectable()
 export class ExtractionService {
-  private readonly queue: Queue;
+  private queue: Queue | null = null;
 
-  constructor(private readonly prisma: PrismaService) {
-    this.queue = new Queue(EXTRACTION_QUEUE, {
-      connection: { host: process.env['REDIS_HOST'] ?? 'localhost', port: parseInt(process.env['REDIS_PORT'] ?? '6379') },
-    });
+  constructor(private readonly prisma: PrismaService) {}
+
+  private getQueue(): Queue {
+    if (!this.queue) {
+      this.queue = new Queue(EXTRACTION_QUEUE, {
+        connection: {
+          host: process.env['REDIS_HOST'] ?? 'localhost',
+          port: parseInt(process.env['REDIS_PORT'] ?? '6379'),
+          lazyConnect: true,
+        },
+      });
+    }
+    return this.queue;
   }
 
   async submit(dto: SubmitExtractionDto, _userId: string) {
@@ -34,7 +43,7 @@ export class ExtractionService {
     });
 
     // Enqueue the job
-    await this.queue.add('extract', {
+    await this.getQueue().add('extract', {
       extractionRunId: run.id,
       repositoryUrl: dto.repositoryUrl,
       commitSha: dto.commitSha ?? 'HEAD',
